@@ -11,7 +11,9 @@ __IO uint8_t rx_buffer[I2C_RECEIVE_BUFFER_LEN];
 __IO uint8_t tx_buffer[I2C_RECEIVE_BUFFER_LEN];
 __IO uint16_t tx_len = 0;
 __IO uint8_t tx_state = 0;
-
+__IO uint8_t trans_state = 0;
+__IO uint32_t i2c_timeout_delay = 0;
+__IO uint32_t trans_timeout_state = 0;
 
 __weak void i2c2_receive_callback(uint8_t *rx_data, uint16_t len) {
 	/* Prevent unused argument(s) compilation warning */
@@ -41,6 +43,7 @@ void i2c2_set_send_data(uint8_t *tx_ptr, uint16_t len) {
 
 void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode) {
 	if (hi2c->Instance == hi2c2.Instance) {
+		trans_state = 1;
 		hi2c->State = HAL_I2C_STATE_READY;
 		i2c2_addr_req_callback(TransferDirection);
 		if (TransferDirection == I2C_WRITE_OPERATION) {
@@ -63,6 +66,8 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c) {
       i2c2_receive_callback((uint8_t *)&rx_buffer[0], I2C_RECEIVE_BUFFER_LEN - hi2c->XferSize);
     }
     tx_state = 0;
+	trans_state = 0;
+	trans_timeout_state = 0;	
 		HAL_I2C_EnableListen_IT(&hi2c2);
 	}
 }
@@ -71,6 +76,8 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c) {
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c) {
 	if (hi2c->Instance == hi2c2.Instance) {
 		i2c2_receive_callback((uint8_t *)&rx_buffer[0], I2C_RECEIVE_BUFFER_LEN);
+		trans_state = 0;
+		trans_timeout_state = 0;		
 		HAL_I2C_EnableListen_IT(&hi2c2);
 	}
 }
@@ -79,6 +86,8 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c) {
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c) {
 	if (hi2c->Instance == hi2c2.Instance) {
     tx_state = 0;
+		trans_state = 0;
+		trans_timeout_state = 0;	
 		HAL_I2C_EnableListen_IT(&hi2c2);
 	}
 }
@@ -86,6 +95,8 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c) {
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
 
   if (hi2c->Instance == hi2c2.Instance) {
+		trans_state = 0;
+		trans_timeout_state = 0;	  
 		HAL_I2C_EnableListen_IT(&hi2c2);
 		__HAL_I2C_GENERATE_NACK(&hi2c2);
 	}

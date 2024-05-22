@@ -24,6 +24,7 @@
 #include "i2c_ex.h"
 #include "ws2812.h"
 #include "flash.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,6 +70,11 @@ uint8_t i2c_address[1] = {0};
 volatile uint8_t fm_version = FIRMWARE_VERSION;
 volatile uint8_t g_mode_sel = 0;
 volatile uint8_t g_button_status = 0;
+volatile uint8_t g_changed = 0;
+volatile uint8_t g_one_button = 0;
+uint8_t g_button_status_set[8] = {1,1,1,1,1,1,1,1};
+uint8_t g_button_status_set_counter[8] = {0};
+uint8_t g_button_last_status_set[8] = {1,1,1,1,1,1,1,1};
 volatile uint8_t f_encoder_read_fail = 0;
 /* USER CODE END PV */
 
@@ -410,6 +416,9 @@ uint8_t read_button_switch_status(uint8_t offset)
 
 void i2c2_receive_callback(uint8_t *rx_data, uint16_t len) 
 {
+  uint8_t rx_buf[16];
+  uint8_t tx_buf[16];
+  uint8_t rx_mark[16] = {0}; 
   // if(len > 1 && (rx_data[0] == 0x00)) 
   // {
   //   g_mode_sel = (rx_data[1]==1)?1:0;
@@ -446,15 +455,61 @@ void i2c2_receive_callback(uint8_t *rx_data, uint16_t len)
         g_counter[(rx_data[0]+i - 0x40)] = 0;  
     }
   }
-  else if (len == 1 && ((rx_data[0] >= 0x50) & (rx_data[0] <= 0x57)))
+  else if (len == 1 && ((rx_data[0] >= 0x50) & (rx_data[0] <= 0x5F)))
   {
-    g_button_status = read_button_switch_status(rx_data[0] - 0x50);
-    i2c2_set_send_data((uint8_t *)&g_button_status, 1);
+    memcpy(tx_buf, g_button_status_set, 8);
+    memcpy(tx_buf+8, g_button_status_set_counter, 8);
+    i2c2_set_send_data((uint8_t *)&tx_buf[rx_data[0]-0x50], 0x5F-rx_data[0]+1);
+    switch (rx_data[0])
+    {
+    case 0x58:
+      g_button_status_set_counter[0] = 0;
+      break;
+    case 0x59:
+      g_button_status_set_counter[1] = 0;
+      break;
+    case 0x5A:
+      g_button_status_set_counter[2] = 0;
+      break;
+    case 0x5B:
+      g_button_status_set_counter[3] = 0;
+      break;
+    case 0x5C:
+      g_button_status_set_counter[4] = 0;
+      break;
+    case 0x5D:
+      g_button_status_set_counter[5] = 0;
+      break;
+    case 0x5E:
+      g_button_status_set_counter[6] = 0;
+      break;
+    case 0x5F:
+      g_button_status_set_counter[7] = 0;
+      break;
+    
+    default:
+      break;
+    }      
+  }
+  else if (len > 1 && ((rx_data[0] >= 0x58) & (rx_data[0] <= 0x5F)))
+  {
+    for(int i = 0; i < len - 1; i++) {
+      g_button_status_set_counter[rx_data[0]-0x58+i] = rx_data[1+i];
+    }
   }
   else if (len == 1 && (rx_data[0] == 0x60))
   {
     g_button_status = read_button_switch_status(rx_data[0]);
     i2c2_set_send_data((uint8_t *)&g_button_status, 1);
+  }
+  else if (len == 1 && (rx_data[0] == 0x61))
+  {
+    i2c2_set_send_data((uint8_t *)&g_changed, 1);
+    g_changed = 0;
+  }
+  else if (len == 1 && (rx_data[0] == 0x62))
+  {
+    i2c2_set_send_data((uint8_t *)&g_one_button, 1);
   }
 	else if (len > 1 && ((rx_data[0] >= 0x70) & (rx_data[0] <= 0x8A))) 
 	{
@@ -696,6 +751,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[0]++;
         }       
       }
+      g_changed |= (1 << 0);
       break;
     case EN_S2_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -721,6 +777,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[1]++;
         }       
       }
+      g_changed |= (1 << 1);
       break;
     case EN_S3_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -746,6 +803,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[2]++;
         }       
       }
+      g_changed |= (1 << 2);
       break;
     case EN_S4_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -771,6 +829,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[3]++;
         }       
       }
+      g_changed |= (1 << 3);
       break;
     case EN_S5_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -796,6 +855,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[4]++;
         }       
       }
+      g_changed |= (1 << 4);
       break;
     case EN_S6_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -821,6 +881,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[5]++;
         }       
       }
+      g_changed |= (1 << 5);
       break;
     case EN_S7_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -846,6 +907,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[6]++;
         }       
       }
+      g_changed |= (1 << 6);
       break;
     case EN_S8_A_Pin:
       if (g_phase_a_last_encoder_status[index]) {
@@ -871,6 +933,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[7]++;
         }       
       }
+      g_changed |= (1 << 7);
       break;
     
     default:
@@ -944,6 +1007,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[0]--;
         }       
       }
+      g_changed |= (1 << 0); 
       break;
     case EN_S2_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -969,6 +1033,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[1]--;
         }       
       }
+      g_changed |= (1 << 1);
       break;
     case EN_S3_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -994,6 +1059,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[2]--;
         }       
       }
+      g_changed |= (1 << 2);
       break;
     case EN_S4_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -1019,6 +1085,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[3]--;
         }       
       }
+      g_changed |= (1 << 3);
       break;
     case EN_S5_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -1044,6 +1111,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[4]--;
         }       
       }
+      g_changed |= (1 << 4);
       break;
     case EN_S6_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -1069,6 +1137,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[5]--;
         }       
       }
+      g_changed |= (1 << 5);
       break;
     case EN_S7_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -1094,6 +1163,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[6]--;
         }       
       }
+      g_changed |= (1 << 6);
       break;
     case EN_S8_B_Pin:
       if (g_phase_b_last_encoder_status[index]) {
@@ -1119,6 +1189,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
           g_inc_counter[7]--;
         }       
       }
+      g_changed |= (1 << 7);
       break;
     
     default:
@@ -1186,6 +1257,32 @@ int main(void)
       disable_exti();
       ec11_init();
       enable_exti();
+    }
+    if (trans_state) {
+      if (i2c_timeout_delay < HAL_GetTick()) {
+        i2c_timeout_delay = HAL_GetTick() + 505;
+        trans_timeout_state += 1;
+        if (trans_timeout_state >= 2) {
+          HAL_I2C_EnableListen_IT(&hi2c2);
+          __HAL_I2C_GENERATE_NACK(&hi2c2);
+          HAL_Delay(500);
+        }        
+      }
+    }    
+    
+    for (int i = 0; i < 8; i++) {
+      g_button_status_set[i] = read_button_switch_status(i);
+      if (g_button_last_status_set[i] != g_button_status_set[i]) {
+        if (g_button_last_status_set[i] == 0) {
+          g_button_status_set_counter[i]++;
+        }
+        g_button_last_status_set[i] = g_button_status_set[i];
+      }      
+    }
+
+    g_one_button = 0;
+    for (int i = 0; i < 8; i++) {
+      g_one_button |= (!!g_button_status_set[i] << i);
     }
     /* USER CODE END WHILE */
 
@@ -1347,7 +1444,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel2_3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 1);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
 
 }

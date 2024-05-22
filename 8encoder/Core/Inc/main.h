@@ -44,6 +44,9 @@ extern "C" {
 extern I2C_HandleTypeDef hi2c2;
 extern TIM_HandleTypeDef htim3;
 extern uint32_t *color_buf;
+extern __IO uint8_t trans_state;
+extern __IO uint32_t i2c_timeout_delay;
+extern __IO uint32_t trans_timeout_state;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
