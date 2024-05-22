@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FIRMWARE_VERSION 1
+#define FIRMWARE_VERSION 2
 #define SWITCH_FILTER 10
 #define SWITCH_FILTER_TIMEROUT SWITCH_FILTER*15
 #define BUTTON_FILTER 500
