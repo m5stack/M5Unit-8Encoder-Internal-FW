@@ -34,13 +34,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FIRMWARE_VERSION 2
-#define SWITCH_FILTER 10
-#define SWITCH_FILTER_TIMEROUT SWITCH_FILTER*15
-#define BUTTON_FILTER 500
-#define BUTTON_FILTER_TIMEROUT BUTTON_FILTER*3
-#define I2C_ADDRESS 0x41
-#define APPLICATION_ADDRESS     ((uint32_t)0x08001000) 
+#define FIRMWARE_VERSION       3
+#define SWITCH_FILTER          10
+#define SWITCH_FILTER_TIMEROUT SWITCH_FILTER * 15
+#define BUTTON_FILTER          500
+#define BUTTON_FILTER_TIMEROUT BUTTON_FILTER * 3
+#define I2C_ADDRESS            0x41
+#define APPLICATION_ADDRESS    ((uint32_t)0x08001000)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -1393,15 +1393,15 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 1 */
 
   /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
+  htim3.Instance         = TIM3;
+  htim3.Init.Prescaler   = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 60-1;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  /* 60 ticks at 48 MHz = 1.25 us per WS2812 bit. */
+  htim3.Init.Period            = 60 - 1;
+  htim3.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
+      Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
   if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
